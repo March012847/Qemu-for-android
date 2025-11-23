@@ -1,0 +1,104 @@
+name: Build QEMU for Android
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-aarch64:
+    name: Build QEMU for aarch64 Android
+    runs-on: ubuntu-latest
+    env:
+      QEMU_VERSION: 7.2.21
+      ANDROID_API: 21            # minimum Android API level for arm64
+      ANDROID_NDK_VERSION: r25c  # adjust to the latest NDK you want
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup NDK
+        uses: malinskiy/setup-android@v2
+        with:
+          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Download QEMU source
+        run: |
+          wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
+          tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
+          cd qemu-${{ env.QEMU_VERSION }}
+
+      - name: Configure for Android aarch64
+        run: |
+          cd qemu-${{ env.QEMU_VERSION }}
+          ./configure \
+            --target-list=aarch64-softmmu,arm64-linux-user \
+            --cross-prefix=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
+            --cc=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --cxx=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
+            --extra-ldflags="-pie" \
+            --disable-sdl --disable-gtk --disable-vnc \
+            --disable-xen --disable-linux-aio
+
+      - name: Build
+        run: |
+          cd qemu-${{ env.QEMU_VERSION }}
+          make -j$(nproc)
+          # Optionally: make install DESTDIR=…
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: qemu-aarch64-android
+          path: |
+            qemu-${{ env.QEMU_VERSION }}/qemu-system-aarch64
+            qemu-${{ env.QEMU_VERSION }}/qemu-aarch64
+
+  build-x86_64:
+    name: Build QEMU for x86_64 guest on Android host
+    runs-on: ubuntu-latest
+    env:
+      QEMU_VERSION: 7.2.21
+      ANDROID_API: 21
+      ANDROID_NDK_VERSION: r25c
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup NDK
+        uses: malinskiy/setup-android@v2
+        with:
+          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Download QEMU source
+        run: |
+          wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
+          tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
+          cd qemu-${{ env.QEMU_VERSION }}
+
+      - name: Configure for Android host x86_64 guest
+        run: |
+          cd qemu-${{ env.QEMU_VERSION }}
+          ./configure \
+            --target-list=x86_64-softmmu, x86_64-linux-user \
+            --cross-prefix=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
+            --cc=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --cxx=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
+            --extra-ldflags="-pie" \
+            --disable-sdl --disable-gtk --disable-vnc \
+            --disable-linux-aio \
+            # Crucially, you may need to skip QEMU sanity checks if they try to run guest tests:
+            --disable-tests
+
+      - name: Build
+        run: |
+          cd qemu-${{ env.QEMU_VERSION }}
+          make -j$(nproc)
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: qemu-x86_64-android
+          path: |
+            qemu-${{ env.QEMU_VERSION }}/qemu-system-x86_64
+            qemu-${{ env.QEMU_VERSION }}/qemu-x86_64
