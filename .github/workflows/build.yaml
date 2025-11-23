@@ -31,24 +31,24 @@ jobs:
           wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
           tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
 
-      - name: Verify clang exists
-        run: |
-          ls -l ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang
-
       - name: Configure for Android aarch64
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
           mkdir -p build && cd build
           ../configure \
             --disable-pkg-config \
+            --disable-glib \
+            --disable-gtk \
+            --disable-sdl \
+            --disable-vnc \
+            --disable-xen \
+            --disable-linux-aio \
             --target-list=aarch64-softmmu,aarch64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
             --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang \
             --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
-            --extra-ldflags="-pie" \
-            --disable-sdl --disable-gtk --disable-vnc \
-            --disable-xen --disable-linux-aio
+            --extra-ldflags="-pie"
 
       - name: Build
         run: |
@@ -88,24 +88,24 @@ jobs:
           wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
           tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
 
-      - name: Verify clang exists
-        run: |
-          ls -l ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang
-
       - name: Configure for Android x86_64
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
           mkdir -p build && cd build
           ../configure \
             --disable-pkg-config \
+            --disable-glib \
+            --disable-gtk \
+            --disable-sdl \
+            --disable-vnc \
+            --disable-xen \
+            --disable-linux-aio \
             --target-list=x86_64-softmmu,x86_64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
             --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang \
             --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
-            --extra-ldflags="-pie" \
-            --disable-sdl --disable-gtk --disable-vnc \
-            --disable-linux-aio
+            --extra-ldflags="-pie"
 
       - name: Build
         run: |
