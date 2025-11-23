@@ -21,6 +21,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Setup Android NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
@@ -30,14 +31,19 @@ jobs:
           wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
           tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
 
+      - name: Verify clang exists
+        run: |
+          ls -l ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang
+
       - name: Configure for Android aarch64
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
-          ./configure \
+          mkdir -p build && cd build
+          ../configure \
             --target-list=aarch64-softmmu,aarch64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang \
+            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
             --extra-ldflags="-pie" \
             --disable-sdl --disable-gtk --disable-vnc \
@@ -45,7 +51,7 @@ jobs:
 
       - name: Build
         run: |
-          cd qemu-${{ env.QEMU_VERSION }}
+          cd qemu-${{ env.QEMU_VERSION }}/build
           make -j$(nproc)
 
       - name: Upload aarch64 artifact
@@ -53,11 +59,11 @@ jobs:
         with:
           name: qemu-aarch64-android
           path: |
-            qemu-${{ env.QEMU_VERSION }}/qemu-system-aarch64
-            qemu-${{ env.QEMU_VERSION }}/qemu-aarch64
+            qemu-${{ env.QEMU_VERSION }}/build/qemu-system-aarch64
+            qemu-${{ env.QEMU_VERSION }}/build/qemu-aarch64
 
   build-x86_64:
-    name: Build QEMU for x86_64 guest on Android host
+    name: Build QEMU for x86_64 Android
     runs-on: ubuntu-latest
     env:
       QEMU_VERSION: 7.2.21
@@ -71,6 +77,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Setup Android NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
@@ -80,14 +87,19 @@ jobs:
           wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
           tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
 
-      - name: Configure for Android x86_64 guest
+      - name: Verify clang exists
+        run: |
+          ls -l ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang
+
+      - name: Configure for Android x86_64
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
-          ./configure \
+          mkdir -p build && cd build
+          ../configure \
             --target-list=x86_64-softmmu,x86_64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang \
+            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
             --extra-ldflags="-pie" \
             --disable-sdl --disable-gtk --disable-vnc \
@@ -95,7 +107,7 @@ jobs:
 
       - name: Build
         run: |
-          cd qemu-${{ env.QEMU_VERSION }}
+          cd qemu-${{ env.QEMU_VERSION }}/build
           make -j$(nproc)
 
       - name: Upload x86_64 artifact
@@ -103,5 +115,5 @@ jobs:
         with:
           name: qemu-x86_64-android
           path: |
-            qemu-${{ env.QEMU_VERSION }}/qemu-system-x86_64
-            qemu-${{ env.QEMU_VERSION }}/qemu-x86_64
+            qemu-${{ env.QEMU_VERSION }}/build/qemu-system-x86_64
+            qemu-${{ env.QEMU_VERSION }}/build/qemu-x86_64
