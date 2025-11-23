@@ -7,17 +7,21 @@ on:
 
 jobs:
   build-aarch64:
+    name: Build QEMU for aarch64 Android
     runs-on: ubuntu-latest
     env:
       QEMU_VERSION: 7.2.21
       ANDROID_API: 21
       ANDROID_NDK_VERSION: r25c
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Setup NDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
-        id: ndk
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
 
@@ -30,10 +34,10 @@ jobs:
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
           ./configure \
-            --target-list=aarch64-softmmu,arm64-linux-user \
-            --cross-prefix=${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-            --cxx=${{ steps.ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --target-list=aarch64-softmmu,aarch64-linux-user \
+            --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
+            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
             --extra-ldflags="-pie" \
             --disable-sdl --disable-gtk --disable-vnc \
@@ -53,17 +57,21 @@ jobs:
             qemu-${{ env.QEMU_VERSION }}/qemu-aarch64
 
   build-x86_64:
+    name: Build QEMU for x86_64 guest on Android host
     runs-on: ubuntu-latest
     env:
       QEMU_VERSION: 7.2.21
       ANDROID_API: 21
       ANDROID_NDK_VERSION: r25c
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Setup NDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
-        id: ndk2
         with:
           ndk-version: ${{ env.ANDROID_NDK_VERSION }}
 
@@ -77,14 +85,13 @@ jobs:
           cd qemu-${{ env.QEMU_VERSION }}
           ./configure \
             --target-list=x86_64-softmmu,x86_64-linux-user \
-            --cross-prefix=${{ steps.ndk2.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.ndk2.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-            --cxx=${{ steps.ndk2.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
+            --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
+            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ \
             --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
             --extra-ldflags="-pie" \
             --disable-sdl --disable-gtk --disable-vnc \
-            --disable-linux-aio \
-            --disable-tests
+            --disable-linux-aio
 
       - name: Build
         run: |
