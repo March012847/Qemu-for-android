@@ -17,6 +17,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Install pkg-config
+        run: sudo apt-get update && sudo apt-get install -y pkg-config
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -39,7 +42,7 @@ jobs:
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
           mkdir -p build && cd build
-          ../configure \
+          PKG_CONFIG=$(which pkg-config) ../configure \
             --target-list=aarch64-softmmu,aarch64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
             --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang \
@@ -73,6 +76,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Install pkg-config
+        run: sudo apt-get update && sudo apt-get install -y pkg-config
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -95,7 +101,7 @@ jobs:
         run: |
           cd qemu-${{ env.QEMU_VERSION }}
           mkdir -p build && cd build
-          ../configure \
+          PKG_CONFIG=$(which pkg-config) ../configure \
             --target-list=x86_64-softmmu,x86_64-linux-user \
             --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
             --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang \
