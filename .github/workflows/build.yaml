@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_LEVEL: 33  # Android API level
-      TARGET: aarch64-linux-android
+      TARGET_AARCH64: aarch64-linux-android
+      TARGET_ARM: arm-linux-androideabi
 
     steps:
       - name: Checkout source
@@ -19,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git python3 pkg-config ninja wget unzip
+          sudo apt install -y build-essential git python3 pkg-config ninja wget unzip libglib2.0-dev
 
       - name: Download Android NDK
         run: |
@@ -27,14 +28,15 @@ jobs:
           unzip android-ndk-r26b-linux.zip
           echo "ANDROID_NDK=$(pwd)/android-ndk-r26b" >> $GITHUB_ENV
 
-      - name: Set up cross-compilation
+      - name: Set up cross-compilation toolchain
         run: |
-          echo "CC=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET$API_LEVEL-clang" >> $GITHUB_ENV
-          echo "CXX=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET$API_LEVEL-clang++" >> $GITHUB_ENV
-          echo "AR=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
-          echo "LD=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ld" >> $GITHUB_ENV
-          echo "RANLIB=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> $GITHUB_ENV
-          echo "STRIP=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
+          TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
+          echo "CC_AARCH64=$TOOLCHAIN/bin/$TARGET_AARCH64$API_LEVEL-clang" >> $GITHUB_ENV
+          echo "CXX_AARCH64=$TOOLCHAIN/bin/$TARGET_AARCH64$API_LEVEL-clang++" >> $GITHUB_ENV
+          echo "AR=$TOOLCHAIN/bin/llvm-ar" >> $GITHUB_ENV
+          echo "LD=$TOOLCHAIN/bin/ld" >> $GITHUB_ENV
+          echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
+          echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
 
       - name: Clone QEMU
         run: |
@@ -49,9 +51,8 @@ jobs:
           ./configure \
             --prefix=$QEMU_DIR/build-android \
             --target-list=aarch64-softmmu,arm-softmmu \
-            --cross-prefix=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET- \
-            --cc=$CC \
-            --cxx=$CXX \
+            --cc=$CC_AARCH64 \
+            --cxx=$CXX_AARCH64 \
             --disable-tools
 
       - name: Build QEMU
@@ -61,7 +62,7 @@ jobs:
           make install
 
       - name: Upload QEMU binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: qemu-android
           path: ${{ github.workspace }}/qemu/build-android/bin/
