@@ -2,120 +2,66 @@ name: Build QEMU for Android
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-aarch64:
-    name: Build QEMU for aarch64 Android
+  build-qemu-android:
     runs-on: ubuntu-latest
     env:
-      QEMU_VERSION: 7.2.21
-      ANDROID_API: 21
-      ANDROID_NDK_VERSION: r25c
+      API_LEVEL: 33  # Android API level
+      TARGET: aarch64-linux-android
+
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Android NDK
-        id: setup-ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
-
-      - name: Download QEMU source
+      - name: Install dependencies
         run: |
-          wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
-          tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
+          sudo apt update
+          sudo apt install -y build-essential git python3 pkg-config ninja wget unzip
 
-      - name: Configure for Android aarch64
+      - name: Download Android NDK
         run: |
-          cd qemu-${{ env.QEMU_VERSION }}
-          mkdir -p build && cd build
-          ../configure \
-            --disable-pkg-config \
-            --disable-glib \
-            --disable-gtk \
-            --disable-sdl \
-            --disable-vnc \
-            --disable-xen \
-            --disable-linux-aio \
-            --target-list=aarch64-softmmu,aarch64-linux-user \
-            --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang \
-            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API}-clang++ \
-            --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
-            --extra-ldflags="-pie"
+          wget https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
+          unzip android-ndk-r26b-linux.zip
+          echo "ANDROID_NDK=$(pwd)/android-ndk-r26b" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Set up cross-compilation
         run: |
-          cd qemu-${{ env.QEMU_VERSION }}/build
+          echo "CC=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET$API_LEVEL-clang" >> $GITHUB_ENV
+          echo "CXX=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET$API_LEVEL-clang++" >> $GITHUB_ENV
+          echo "AR=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
+          echo "LD=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/ld" >> $GITHUB_ENV
+          echo "RANLIB=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib" >> $GITHUB_ENV
+          echo "STRIP=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" >> $GITHUB_ENV
+
+      - name: Clone QEMU
+        run: |
+          git clone https://gitlab.com/qemu-project/qemu.git
+          cd qemu
+          git checkout stable-8.2
+          echo "QEMU_DIR=$(pwd)" >> $GITHUB_ENV
+
+      - name: Configure QEMU
+        run: |
+          cd $QEMU_DIR
+          ./configure \
+            --prefix=$QEMU_DIR/build-android \
+            --target-list=aarch64-softmmu,arm-softmmu \
+            --cross-prefix=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/$TARGET- \
+            --cc=$CC \
+            --cxx=$CXX \
+            --disable-tools
+
+      - name: Build QEMU
+        run: |
+          cd $QEMU_DIR
           make -j$(nproc)
+          make install
 
-      - name: Upload aarch64 artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload QEMU binaries
+        uses: actions/upload-artifact@v3
         with:
-          name: qemu-aarch64-android
-          path: |
-            qemu-${{ env.QEMU_VERSION }}/build/qemu-system-aarch64
-            qemu-${{ env.QEMU_VERSION }}/build/qemu-aarch64
-
-  build-x86_64:
-    name: Build QEMU for x86_64 Android
-    runs-on: ubuntu-latest
-    env:
-      QEMU_VERSION: 7.2.21
-      ANDROID_API: 21
-      ANDROID_NDK_VERSION: r25c
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Android NDK
-        id: setup-ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
-
-      - name: Download QEMU source
-        run: |
-          wget https://download.qemu.org/qemu-${{ env.QEMU_VERSION }}.tar.xz
-          tar xf qemu-${{ env.QEMU_VERSION }}.tar.xz
-
-      - name: Configure for Android x86_64
-        run: |
-          cd qemu-${{ env.QEMU_VERSION }}
-          mkdir -p build && cd build
-          ../configure \
-            --disable-pkg-config \
-            --disable-glib \
-            --disable-gtk \
-            --disable-sdl \
-            --disable-vnc \
-            --disable-xen \
-            --disable-linux-aio \
-            --target-list=x86_64-softmmu,x86_64-linux-user \
-            --cross-prefix=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}- \
-            --cc=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang \
-            --cxx=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${ANDROID_API}-clang++ \
-            --extra-cflags="-fPIE -D__ANDROID_API__=${ANDROID_API}" \
-            --extra-ldflags="-pie"
-
-      - name: Build
-        run: |
-          cd qemu-${{ env.QEMU_VERSION }}/build
-          make -j$(nproc)
-
-      - name: Upload x86_64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: qemu-x86_64-android
-          path: |
-            qemu-${{ env.QEMU_VERSION }}/build/qemu-system-x86_64
-            qemu-${{ env.QEMU_VERSION }}/build/qemu-x86_64
+          name: qemu-android
+          path: ${{ github.workspace }}/qemu/build-android/bin/
