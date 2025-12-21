@@ -9,9 +9,8 @@ jobs:
   build-qemu-android:
     runs-on: ubuntu-latest
     env:
-      API_LEVEL: 33  # Android API level
-      TARGET_AARCH64: aarch64-linux-android
-      TARGET_ARM: arm-linux-androideabi
+      API_LEVEL: 33        # Android API level
+      TARGET: aarch64-linux-android
 
     steps:
       - name: Checkout source
@@ -20,7 +19,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git python3 pkg-config ninja-build wget unzip libglib2.0-dev
+          sudo apt install -y \
+            build-essential git python3 pkg-config ninja-build wget unzip libglib2.0-dev
 
       - name: Download Android NDK
         run: |
@@ -31,8 +31,8 @@ jobs:
       - name: Set up cross-compilation toolchain
         run: |
           TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
-          echo "CC_AARCH64=$TOOLCHAIN/bin/$TARGET_AARCH64$API_LEVEL-clang" >> $GITHUB_ENV
-          echo "CXX_AARCH64=$TOOLCHAIN/bin/$TARGET_AARCH64$API_LEVEL-clang++" >> $GITHUB_ENV
+          echo "CC=$TOOLCHAIN/bin/$TARGET$API_LEVEL-clang" >> $GITHUB_ENV
+          echo "CXX=$TOOLCHAIN/bin/$TARGET$API_LEVEL-clang++" >> $GITHUB_ENV
           echo "AR=$TOOLCHAIN/bin/llvm-ar" >> $GITHUB_ENV
           echo "LD=$TOOLCHAIN/bin/ld" >> $GITHUB_ENV
           echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
@@ -45,14 +45,18 @@ jobs:
           git checkout stable-8.2
           echo "QEMU_DIR=$(pwd)" >> $GITHUB_ENV
 
-      - name: Configure QEMU
+      - name: Configure QEMU for Android
         run: |
           cd $QEMU_DIR
           ./configure \
             --prefix=$QEMU_DIR/build-android \
             --target-list=aarch64-softmmu,arm-softmmu \
-            --cc=$CC_AARCH64 \
-            --cxx=$CXX_AARCH64 \
+            --cc=$CC \
+            --cxx=$CXX \
+            --ar=$AR \
+            --ld=$LD \
+            --ranlib=$RANLIB \
+            --strip=$STRIP \
             --disable-tools
 
       - name: Build QEMU
