@@ -1,4 +1,4 @@
-name: Build QEMU for Android
+name: Build QEMU for Android ARM64
 
 on:
   push:
@@ -9,11 +9,11 @@ jobs:
   build-qemu-android:
     runs-on: ubuntu-latest
     env:
-      API_LEVEL: 33        # Android API level
+      API_LEVEL: 33
       TARGET: aarch64-linux-android
 
     steps:
-      - name: Checkout source
+      - name: Checkout QEMU source
         uses: actions/checkout@v3
 
       - name: Install dependencies
@@ -28,7 +28,7 @@ jobs:
           unzip android-ndk-r26b-linux.zip
           echo "ANDROID_NDK=$(pwd)/android-ndk-r26b" >> $GITHUB_ENV
 
-      - name: Set up cross-compilation toolchain
+      - name: Set up Android NDK cross toolchain
         run: |
           TOOLCHAIN=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64
           echo "CC=$TOOLCHAIN/bin/$TARGET$API_LEVEL-clang" >> $GITHUB_ENV
@@ -38,30 +38,19 @@ jobs:
           echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
           echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
 
-      - name: Clone QEMU
+      - name: Configure QEMU (wrapper around Meson)
         run: |
-          git clone https://gitlab.com/qemu-project/qemu.git
-          cd qemu
-          git checkout stable-8.2
-          echo "QEMU_DIR=$(pwd)" >> $GITHUB_ENV
-
-      - name: Configure QEMU for Android
-        run: |
-          cd $QEMU_DIR
+          cd $GITHUB_WORKSPACE
           ./configure \
-            --prefix=$QEMU_DIR/build-android \
+            --prefix=$GITHUB_WORKSPACE/build-android \
             --target-list=aarch64-softmmu,arm-softmmu \
-            --cc=$CC \
-            --cxx=$CXX \
-            --ar=$AR \
-            --ld=$LD \
-            --ranlib=$RANLIB \
-            --strip=$STRIP \
             --disable-tools
+          # This internally sets up Meson + Ninja for cross-compilation
+          # and avoids running sanity test executables on the host
 
       - name: Build QEMU
         run: |
-          cd $QEMU_DIR
+          cd $GITHUB_WORKSPACE
           make -j$(nproc)
           make install
 
@@ -69,4 +58,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: qemu-android
-          path: ${{ github.workspace }}/qemu/build-android/bin/
+          path: ${{ github.workspace }}/build-android/bin/
